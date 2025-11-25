@@ -1,1 +1,242 @@
-def crear_map(
+import random
+
+def crear_mapa(filas=12, columnas=12):
+    mapa = [[3 for _ in range(columnas)] for _ in range(filas)]
+    mapa = agregar_camino_principal(mapa, filas, columnas)
+    mapa = agregar_caminos_secundarios(mapa, filas, columnas)
+    mapa = agregar_red_tuneles(mapa, filas, columnas)
+    mapa = agregar_lianas(mapa, filas, columnas)
+    mapa[0][0] = 0
+    mapa[filas-1][columnas-1] = 0
+    return mapa
+
+def agregar_camino_principal(mapa, filas, columnas):
+    i, j = 0, 0
+    while i < filas-1 or j < columnas-1:
+        mapa[i][j] = 0
+        if i < filas-1 and j < columnas-1:
+            if random.choice([True, False]): i += 1
+            else: j += 1
+        elif i < filas-1: i += 1
+        else: j += 1
+    mapa[filas-1][columnas-1] = 0
+    return mapa
+
+def agregar_caminos_secundarios(mapa, filas, columnas):
+    for _ in range(15):
+        i = random.randint(0, filas-1)
+        j = random.randint(0, columnas-1)
+        if mapa[i][j] == 3: mapa[i][j] = 0
+    return mapa
+
+def agregar_red_tuneles(mapa, filas, columnas):
+    for _ in range(2):
+        i, j = random.randint(1, filas-2), random.randint(1, columnas-2)
+        if mapa[i][j] == 3: crear_tunel(mapa, i, j, filas, columnas)
+    return mapa
+
+def crear_tunel(mapa, i, j, filas, columnas):
+    for _ in range(8):
+        if mapa[i][j] == 3: mapa[i][j] = 2
+        dirs = [[0,1],[1,0],[0,-1],[-1,0]]
+        di, dj = random.choice(dirs)
+        i = max(0, min(filas-1, i + di))
+        j = max(0, min(columnas-1, j + dj))
+
+def agregar_lianas(mapa, filas, columnas):
+    for _ in range(3):
+        i, j = random.randint(1, filas-2), random.randint(1, columnas-2)
+        if mapa[i][j] == 3: crear_liana(mapa, i, j, filas, columnas)
+    return mapa
+
+def crear_liana(mapa, i, j, filas, columnas):
+    for _ in range(6):
+        if mapa[i][j] == 3: mapa[i][j] = 1
+        dirs = [[0,1],[1,0],[0,-1],[-1,0]]
+        di, dj = random.choice(dirs)
+        i = max(0, min(filas-1, i + di))
+        j = max(0, min(columnas-1, j + dj))
+
+def mostrar_mapa(mapa, jugador, enemigos, salida, modo):
+    print("\n" + "="*30)
+    if modo == "escapa": print("MODO ESCAPA")
+    else: print("MODO CAZADOR")
+    print("="*30)
+    for i, fila in enumerate(mapa):
+        linea = []
+        for j, celda in enumerate(fila):
+            if [i, j] == jugador: linea.append('R' if modo == "escapa" else 'C')
+            elif [i, j] == salida and modo == "escapa": linea.append('E')
+            elif [i, j] in enemigos: linea.append('C' if modo == "escapa" else 'R')
+            else:
+                simbolos = {0: ' ', 1: 'L', 2: 'T', 3: '#'}
+                linea.append(simbolos.get(celda, '?'))
+        print(''.join(linea))
+    print("="*30)
+    print("R=Runner, C=Cazador, E=Salida")
+    print("L=Lianas, T=Tuneles, #=Muros")
+    print("="*30)
+
+def mover_enemigos(mapa, enemigos, objetivo, filas, columnas, modo):
+    nuevos = []
+    for enemigo in enemigos:
+        ei, ej = enemigo
+        if modo == "escapa":
+            dist_i = objetivo[0] - ei
+            dist_j = objetivo[1] - ej
+            movimientos = []
+            if abs(dist_i) > abs(dist_j):
+                if dist_i > 0: movimientos.append([1, 0])
+                else: movimientos.append([-1, 0])
+                if dist_j > 0: movimientos.append([0, 1])
+                else: movimientos.append([0, -1])
+            else:
+                if dist_j > 0: movimientos.append([0, 1])
+                else: movimientos.append([0, -1])
+                if dist_i > 0: movimientos.append([1, 0])
+                else: movimientos.append([-1, 0])
+        else:
+            movimientos = [[0,1], [1,0], [0,-1], [-1,0]]
+            random.shuffle(movimientos)
+        movimientos.extend([[0,1], [1,0], [0,-1], [-1,0]])
+        for di, dj in movimientos:
+            nueva_i = ei + di
+            nueva_j = ej + dj
+            nueva_pos = [nueva_i, nueva_j]
+            if (0 <= nueva_i < filas and 0 <= nueva_j < columnas and 
+                ((modo == "escapa" and mapa[nueva_i][nueva_j] in [0, 1]) or
+                 (modo == "cazador" and mapa[nueva_i][nueva_j] in [0, 2])) and
+                nueva_pos not in nuevos):
+                nuevos.append(nueva_pos)
+                break
+        else: nuevos.append(enemigo)
+    return nuevos
+
+def juego_escapa():
+    filas, columnas = 12, 12
+    mapa = crear_mapa(filas, columnas)
+    jugador = [0, 0]
+    salida = [filas-1, columnas-1]
+    cazadores = []
+    for _ in range(3):
+        while True:
+            i = random.randint(2, filas-2)
+            j = random.randint(2, columnas-2)
+            if mapa[i][j] in [0, 1] and [i,j] != jugador and [i,j] != salida:
+                cazadores.append([i, j])
+                break
+    movimientos = 0
+    while True:
+        mostrar_mapa(mapa, jugador, cazadores, salida, "escapa")
+        print(f"Posicion: {jugador}")
+        print(f"Movimientos: {movimientos}")
+        print(f"Cazadores: {len(cazadores)}")
+        if jugador == salida:
+            print("GANASTE! HAS ESCAPADO!")
+            break
+        if jugador in cazadores:
+            print("PERDISTE! TE ATRAPARON!")
+            break
+        mov = input("Movimiento (w/a/s/d/q): ").lower()
+        if mov == 'q': break
+        nueva_i = jugador[0]
+        nueva_j = jugador[1]
+        if mov == 'w': nueva_i -= 1
+        elif mov == 's': nueva_i += 1
+        elif mov == 'a': nueva_j -= 1
+        elif mov == 'd': nueva_j += 1
+        else:
+            print("Movimiento invalido")
+            continue
+        nueva_pos = [nueva_i, nueva_j]
+        if (0 <= nueva_i < filas and 0 <= nueva_j < columnas and 
+            mapa[nueva_i][nueva_j] in [0, 2]):
+            jugador[0] = nueva_i
+            jugador[1] = nueva_j
+            movimientos += 1
+            cazadores = mover_enemigos(mapa, cazadores, jugador, filas, columnas, "escapa")
+        else: print("Movimiento bloqueado")
+
+def juego_cazador():
+    filas, columnas = 12, 12
+    mapa = crear_mapa(filas, columnas)
+    cazador = [filas-1, columnas-1]
+    salidas = [[0, 0], [0, columnas-1], [filas-1, 0]]
+    corredores = []
+    for _ in range(3):
+        while True:
+            i = random.randint(1, filas-2)
+            j = random.randint(1, columnas-2)
+            if mapa[i][j] in [0, 2] and [i,j] != cazador and [i,j] not in salidas:
+                corredores.append([i, j])
+                break
+    movimientos = 0
+    atrapados = 0
+    while True:
+        mostrar_mapa(mapa, cazador, corredores, None, "cazador")
+        print(f"Posicion: {cazador}")
+        print(f"Movimientos: {movimientos}")
+        print(f"Atrapados: {atrapados}/3")
+        if atrapados >= 3:
+            print("GANASTE! ATRAPASTE A TODOS!")
+            break
+        corredores_escapados = 0
+        nuevos_corredores = []
+        for corredor in corredores:
+            if corredor in salidas: corredores_escapados += 1
+            else: nuevos_corredores.append(corredor)
+        corredores = nuevos_corredores
+        if len(corredores) == 0 and atrapados < 3:
+            print("PERDISTE! TODOS ESCAPARON!")
+            break
+        mov = input("Movimiento (w/a/s/d/q): ").lower()
+        if mov == 'q': break
+        nueva_i = cazador[0]
+        nueva_j = cazador[1]
+        if mov == 'w': nueva_i -= 1
+        elif mov == 's': nueva_i += 1
+        elif mov == 'a': nueva_j -= 1
+        elif mov == 'd': nueva_j += 1
+        else:
+            print("Movimiento invalido")
+            continue
+        nueva_pos = [nueva_i, nueva_j]
+        if (0 <= nueva_i < filas and 0 <= nueva_j < columnas and 
+            mapa[nueva_i][nueva_j] in [0, 1]):
+            cazador[0] = nueva_i
+            cazador[1] = nueva_j
+            movimientos += 1
+            capturas = 0
+            nuevos_corredores = []
+            for corredor in corredores:
+                if corredor == cazador:
+                    capturas += 1
+                    atrapados += 1
+                    print(f"Atrapado! Total: {atrapados}")
+                else: nuevos_corredores.append(corredor)
+            corredores = nuevos_corredores
+            corredores = mover_enemigos(mapa, corredores, cazador, filas, columnas, "cazador")
+            while len(corredores) < 3 - atrapados:
+                i = random.randint(1, filas-2)
+                j = random.randint(1, columnas-2)
+                nueva_pos = [i, j]
+                if (mapa[i][j] in [0, 2] and nueva_pos != cazador and 
+                    nueva_pos not in corredores and nueva_pos not in salidas):
+                    corredores.append(nueva_pos)
+                    print("Aparecio un nuevo corredor!")
+                    break
+        else: print("Movimiento bloqueado")
+
+def main():
+    while True:
+        print("\n1. ESCAPA")
+        print("2. CAZADOR")
+        print("3. SALIR")
+        opcion = input("Opcion: ")
+        if opcion == "1": juego_escapa()
+        elif opcion == "2": juego_cazador()
+        elif opcion == "3": break
+        else: print("Opcion invalida")
+
+if __name__ == "__main__":
+    main()
